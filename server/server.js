@@ -2,13 +2,18 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 
 const app = express();
 const client = new MongoClient(process.env.MONGO_URI);
 
 // The collection that stores user documents
-const users = client.db("pa2").collection("users");
+const db = client.db("pa2");
+//collections 
+const users = db.collection("users");
+const projects = db.collection("projects");
+const projectMemberships = db.collection("projectMemberships");
+
 
 app.use(express.json()); // Read JSON sent from React
 app.use(cors()); // Allow requests from the React app on port 5173
@@ -21,10 +26,18 @@ app.get("/", (req, res) => {
 function hasEmptyField(...fieldValues) {
     return fieldValues.some((fieldValue) => !fieldValue || !fieldValue.trim());
 }
+// turns a string id into an ObjectID, or returns null if not vallid
+function toObjectID(id){
+    return ObjectId.isValid(id) ? new ObjectId(id) : null;
+}
 
 // Create a new user if the username isn't taken
 app.post("/signup", async (req, res) => {
     const { f_name, l_name, username, password } = req.body;
+    const projectId = toObjectId(req.params.projectId);
+    if (!projectId) {
+        return res.status(404).json({ message: "Project not found" });
+}
 
     if (hasEmptyField(f_name, l_name, username, password)) {
         return res.status(400).json({ message: "Please fill in all fields" });
@@ -49,6 +62,10 @@ app.post("/signup", async (req, res) => {
 // Check the username and password against the database
 app.post("/login", async (req, res) => {
     const { username, password } = req.body;
+    const projectId = toObjectId(req.params.projectId);
+    if (!projectId) {
+        return res.status(404).json({ message: "Project not found" });
+}
 
     if (hasEmptyField(username, password)) {
         return res.status(400).json({ message: "Please enter your username and password" });
