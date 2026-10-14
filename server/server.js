@@ -34,10 +34,6 @@ function toObjectID(id){
 // Create a new user if the username isn't taken
 app.post("/signup", async (req, res) => {
     const { f_name, l_name, username, password } = req.body;
-    const projectId = toObjectId(req.params.projectId);
-    if (!projectId) {
-        return res.status(404).json({ message: "Project not found" });
-}
 
     if (hasEmptyField(f_name, l_name, username, password)) {
         return res.status(400).json({ message: "Please fill in all fields" });
@@ -62,10 +58,6 @@ app.post("/signup", async (req, res) => {
 // Check the username and password against the database
 app.post("/login", async (req, res) => {
     const { username, password } = req.body;
-    const projectId = toObjectId(req.params.projectId);
-    if (!projectId) {
-        return res.status(404).json({ message: "Project not found" });
-}
 
     if (hasEmptyField(username, password)) {
         return res.status(400).json({ message: "Please enter your username and password" });
@@ -88,10 +80,30 @@ app.post("/login", async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 });
+// List all registered users
+app.get("/users", async (req, res) => {
+    try {
+        const allUsers = await users
+        // only shows the list only these field, preventing security issues
+            .find({}, { projection: { f_name: 1, l_name: 1, username: 1 } })
+            .sort({ username: 1 })
+            .toArray();
+
+        res.status(200).json({ users: allUsers });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
 
 async function connectDatabase() {
     try {
         await client.connect();
+        // creates a index to keep track of duplication
+        await projectMemberships.createIndex (
+            { project_id: 1, user_id:1},
+            {unique: true}
+        );
         console.log("Connected to MongoDB");
     } catch (error) {
         console.error("Could not connect to MongoDB");
