@@ -22,12 +22,24 @@ app.use(cors()); // Allow requests from the React app
 
 
 // Look up several users at once 
-async function findUsersById(userIds) {
+async function findUsersById(userIds) { 
     const matchingUsers = await users
         .find({ _id: { $in: userIds } }, { projection: PUBLIC_USER_FIELDS })
         .toArray();
 
     return new Map(matchingUsers.map((user) => [user._id.toString(), user]));
+}
+
+// Finds a project by its id string, or returns null if it doesn't exist
+async function findProject(projectIdString) {
+    const projectId = toObjectId(projectIdString);
+    return projectId ? projects.findOne({ _id: projectId }) : null;
+}
+
+// Finds a user by its id string, or returns null if it doesn't exist
+async function findUser(userIdString) {
+    const userId = toObjectId(userIdString);
+    return userId ? users.findOne({ _id: userId }, { projection: PUBLIC_USER_FIELDS }) : null;
 }
 
 app.get("/", (req, res) => {
@@ -39,7 +51,7 @@ function hasEmptyField(...fieldValues) {
     return fieldValues.some((fieldValue) => !fieldValue || !fieldValue.trim());
 }
 // turns a string id into an ObjectID, or returns null if not vallid
-function toObjectID(id){
+function toObjectId(id){
     return ObjectId.isValid(id) ? new ObjectId(id) : null;
 }
 
@@ -116,7 +128,7 @@ app.post("/projects", async (req, res) => {
     if (!PROJECT_STATUSES.includes(status)){ 
         return res.status(400).json({message: "unknown status "})
     };
-    const leadId = toObjectID(project_lead_id)
+    const leadId = toObjectId(project_lead_id)
     if (!leadId) return res.status(404).json({message: "ID not found"})
     try {
         const lead = await users.findOne({ _id: leadId });
@@ -152,6 +164,113 @@ app.get("/projects", async (req, res) => {
     }
 });
 
+// List the members of one project
+app.get("/projects/:projectId/members", async (req, res) => {
+    try {
+        const project = await findProject(req.params.projectId);
+
+        if (!project) {
+            return res.status(404).json({ message: "Project not found" });
+        }
+
+        // The membership documents only hold ids
+        const memberships = await projectMemberships
+            .find({ project_id: project._id })
+            .toArray();
+
+        // look up the matching users to get their names
+        const usersById = await findUsersById(
+            memberships.map((membership) => membership.user_id)
+        );
+
+        const members = memberships
+            .map((membership) => usersById.get(membership.user_id.toString()))
+            .filter(Boolean)
+            .sort((a, b) => a.username.localeCompare(b.username));
+
+        res.status(200).json({ project, members });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+// Add a registered user to a project
+app.post("/projects/:projectId/members", async (req, res) => {
+    const { user_id } = req.body;
+
+    if (hasEmptyField(user_id)) {
+        return res.status(400).json({ message: "Please select a user to add" });
+    }
+
+    try {
+        const project = await findProject(req.params.projectId);
+        if (!project) {
+            return res.status(404).json({ message: "Project not found" });
+        }
+
+        const user = await findUser(user_id);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const existingMembership = await projectMemberships.findOne({
+            project_id: project._id,
+            user_id: user._id
+        });
+
+        if (existingMembership) {
+            return res.status(409).json({
+                message: `${user.username} is already a member of ${project.name}`
+            });
+        }
+
+        await projectMemberships.insertOne({ project_id: project._id, user_id: user._id });
+
+        res.status(201).json({ message: `${user.username} was added to ${project.name}` });
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({ message: "That user is already a member of this project" });
+        }
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+// Remove a non-lead member from a project
+app.delete("/projects/:projectId/members/:userId", async (req, res) => {
+    try {
+        const project = await findProject(req.params.projectId);
+        if (!project) {
+            return res.status(404).json({ message: "Project not found" });
+        }
+
+        const user = await findUser(req.params.userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        if (project.project_lead_id.equals(user._id)) {
+            return res.status(403).json({
+                message: `${user.username} is the Project Lead and cannot be removed`
+            });
+        }
+
+        const result = await projectMemberships.deleteOne({
+            project_id: project._id,
+            user_id: user._id
+        });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({
+                message: `${user.username} is not a member of ${project.name}`
+            });
+        }
+
+        res.status(200).json({ message: `${user.username} was removed from ${project.name}` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
 async function connectDatabase() {
     try {
         await client.connect();
