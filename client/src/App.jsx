@@ -5,6 +5,7 @@ import "./App.css";
 import CreateProject from "./components/createProject";
 import ProjectList from "./components/ProjectList";
 import ManageMembers from "./components/ManageMembers";
+import Backlog from "./components/Backlog";
 function App() {
     // Which form is showing: "signup" or "login"
     const [activeForm, setActiveForm] = useState("signup");
@@ -42,6 +43,13 @@ function App() {
                     >
                     Members
                 </button>
+                <button
+                    type="button"
+                    className={activeForm === "backlog" ? "tab active" : "tab"}
+                    onClick={() => setActiveForm("backlog")}
+                    >
+                    Backlog
+                </button>
             </div>
 
             {activeForm === "signup" && <Signup />}
@@ -56,6 +64,7 @@ function App() {
             
             )}
             {activeForm === "members" && <ManageMembers />}
+            {activeForm === "backlog" && <Backlog />}
         </div>
     );
 }
