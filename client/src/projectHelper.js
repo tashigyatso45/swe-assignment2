@@ -41,6 +41,22 @@ export function removeProjectMember(projectId, userId) {
     return request(`/projects/${projectId}/members/${userId}`, "DELETE");
 }
 
+export function getProjectStories(projectId) {
+    return request(`/projects/${projectId}/stories`);
+}
+
+export function createStory(projectId, story) {
+    return request(`/projects/${projectId}/stories`, "POST", story);
+}
+
+export function updateStory(projectId, storyId, story) {
+    return request(`/projects/${projectId}/stories/${storyId}`, "PUT", story);
+}
+
+export function deleteStory(projectId, storyId) {
+    return request(`/projects/${projectId}/stories/${storyId}`, "DELETE");
+}
+
 // "Jane Doe (jdoe)" — how a user is shown everywhere in the UI
 export function formatUser(user) {
     return user ? `${user.f_name} ${user.l_name} (${user.username})` : "Unknown user";
