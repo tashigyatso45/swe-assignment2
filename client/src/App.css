@@ -73,3 +73,42 @@
     background: #fbe7e7;
     color: #a12a2a;
 }
+.story-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.story-card {
+    padding: 10px;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+}
+
+.story-card p {
+    margin: 4px 0;
+    font-size: 14px;
+}
+
+.story-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.form .story-actions button {
+    flex: 1;
+    padding: 6px;
+    font-size: 13px;
+}
+
+.form .remove-button {
+    background: #a12a2a;
+}
+
+.form .cancel-button {
+    background: #667085;
+}
